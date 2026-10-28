@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main, master]
   schedule:
-    - cron: '0 6 * * 1'
+    - cron: "0 6 * * 1"
 jobs:
   health:
     runs-on: ubuntu-latest
@@ -13,8 +13,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Install and check
+          python-version: "3.12"
+      - name: Check for Python files
+        id: pycheck
         run: |
+          count=$(find . -name '*.py' -not -path './.git/*' | wc -l)
+          echo "py_count=$count" >> $GITHUB_OUTPUT
+      - name: Install and check
+        if: steps.pycheck.outputs.py_count > 0
+        run: |
+          python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          find . -name '*.py' -not -path './.git/*' -exec python -m py_compile {} \;
+          if [ -f pyproject.toml ]; then pip install -e ".[dev]" || true; fi
+          find . -name '*.py' -not -path './.git/*' -exec python -m py_compile {} +
+      - name: No Python files
+        if: steps.pycheck.outputs.py_count == 0
+        run: echo "No Python files to compile — doc-only repo"
